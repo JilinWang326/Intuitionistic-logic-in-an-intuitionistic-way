@@ -1,7 +1,7 @@
 import Mathlib
 import MyNewProject.Intuitionism.bcp
 import MyNewProject.Intuitionism.fin_seq
-
+import MyNewProject.Intuitionism.IPC
 open NatSeq
 open fin_seq
 
@@ -68,3 +68,16 @@ def principle_of_bar_induction
             s ∈ C)
     : Prop :=
   empty_seq ∈ C
+
+abbrev CompLaw (σ : fin_seq → ℕ) := fin_seq → Finset Form
+
+/-- `Prefix s t` : s 是 t 的前缀（按坐标一致） -/
+def Prefix (s t : fin_seq) : Prop :=
+  ∃ h : s.len ≤ t.len,
+    ∀ i : Fin s.len, s.seq i = t.seq (Fin.castLE h i)
+
+def MonotoneOnAdmitted (σ : fin_seq → ℕ) (F : CompLaw σ) : Prop :=
+  ∀ {s t : fin_seq},
+    Prefix s t →
+    σ s = 0 → σ t = 0 →
+    F s ⊆ F t
