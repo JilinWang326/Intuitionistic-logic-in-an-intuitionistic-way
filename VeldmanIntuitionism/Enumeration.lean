@@ -1,7 +1,7 @@
 import Mathlib
-import MyNewProject.Intuitionism.fin_seq
-import MyNewProject.Intuitionism.fan
-import MyNewProject.Intuitionism.IPC
+import VeldmanIntuitionism.fin_seq
+import VeldmanIntuitionism.fan
+import VeldmanIntuitionism.IPC
 
 
 namespace IPC

@@ -98,7 +98,6 @@ lemma lt_iff_not_le (s t : 𝕊) : s < t ↔ ¬ t ≤ s := by
   · -- need to prove: ¬ t ≤ s → s < t
     intro h
     apply lt_of_not_ge
-    rw [ge_iff_le]
     exact h
 
 @[trans] theorem lt_trans (s t v : 𝕊) (h₁ : s < t) (h₂ : t < v) : s < v := by

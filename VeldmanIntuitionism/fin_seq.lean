@@ -1,5 +1,5 @@
 import Mathlib
-import MyNewProject.Intuitionism.nat_seq
+import VeldmanIntuitionism.nat_seq
 
 open NatSeq
 

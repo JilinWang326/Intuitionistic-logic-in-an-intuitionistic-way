@@ -1,4 +1,4 @@
-import Mathlib.Data.Set.Basic
+import Mathlib.Data.Set.Insert
 
 namespace IPC
 
@@ -97,10 +97,8 @@ theorem deduction {Γ : Set Form} {a b : Form} :
   induction h with
   | ax hmem =>
       rcases (Set.mem_insert_iff.mp hmem) with rfl | hpΓ
-      ·
-        exact id
-      ·
-        exact prf.mp (prf.k (Γ := Γ) (q := a)) (prf.ax hpΓ)
+      · exact id
+      · exact prf.mp (prf.k (Γ := Γ) (q := a)) (prf.ax hpΓ)
   | k =>
       exact lift (Γ := Γ) (a := a) (prf.k (Γ := Γ))
   | s =>

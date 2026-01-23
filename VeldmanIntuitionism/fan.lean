@@ -1,7 +1,7 @@
 import Mathlib
-import MyNewProject.Intuitionism.bcp
-import MyNewProject.Intuitionism.fin_seq
-import MyNewProject.Intuitionism.IPC
+import VeldmanIntuitionism.bcp
+import VeldmanIntuitionism.fin_seq
+import VeldmanIntuitionism.IPC
 open NatSeq
 open fin_seq
 
@@ -69,7 +69,7 @@ def principle_of_bar_induction
     : Prop :=
   empty_seq ∈ C
 
-abbrev CompLaw (σ : fin_seq → ℕ) := fin_seq → Finset Form
+abbrev CompLaw (σ : fin_seq → ℕ) := fin_seq → Finset IPC.Form
 
 /-- `Prefix s t` : s 是 t 的前缀（按坐标一致） -/
 def Prefix (s t : fin_seq) : Prop :=

@@ -1,6 +1,6 @@
 import Mathlib
-import MyNewProject.Intuitionism.nat_seq
-import MyNewProject.Intuitionism.reckless
+import VeldmanIntuitionism.nat_seq
+import VeldmanIntuitionism.reckless
 
 open NatSeq
 
