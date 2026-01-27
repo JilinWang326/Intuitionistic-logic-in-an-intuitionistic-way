@@ -1,46 +1,55 @@
+/-
+Copyright (c) 2023 Bruno Bentzen. All rights reserved.
+Released under the Apache License 2.0 (see "License");
+Authors: Bruno Bentzen, Jilin Wang
+-/
+
 import Mathlib.Data.Set.Insert
 
 namespace IPC
 
 universe u
 
-/-- Propositional formulas with a distinguished constant `I`. -/
+/-- Propositional formulas with a distinguished constant `bot`. -/
+
 inductive Form : Type
 | atom : Nat → Form
-| I : Form
+| bot : Form
 | imp : Form → Form → Form
 | and : Form → Form → Form
 | or  : Form → Form → Form
 deriving DecidableEq, Repr
 
 namespace Form
-def neg (A : Form) : Form := imp A I
+def neg (A : Form) : Form := imp A bot
 end Form
 
 scoped[IPC] prefix:100 "#" => Form.atom
-scoped[IPC] notation "I" => Form.I
+scoped[IPC] notation "⊥" => Form.bot
 scoped[IPC] infixr:60 " ⊃ " => Form.imp
 scoped[IPC] notation:70 p " & " q => Form.and p q
 scoped[IPC] infixr:65 " ⋎ " => Form.or
 
 open scoped IPC
 
-/-- Exploded (modified) Kripke models (Lean3-style: W ⊆ A, R on A). -/
+/-- Veldman-style exploding Kripke models (as in Lean 3: W ⊆ A, R on A). -/
+
 structure emodel (A : Type u) where
   W     : Set A
   R     : A → A → Prop
   val   : Nat → A → Prop
-  ival  : A → Prop
+  boom  : A → Prop
   refl  : ∀ w, w ∈ W → R w w
   trans : ∀ w, w ∈ W → ∀ v, v ∈ W → ∀ u, u ∈ W → R w v → R v u → R w u
   mono  : ∀ p : Nat, ∀ w1 w2 : A, w1 ∈ W → w2 ∈ W → val p w1 → R w1 w2 → val p w2
-  monoI : ∀ w1 w2 : A, w1 ∈ W → w2 ∈ W → ival w1 → R w1 w2 → ival w2
+  bmono : ∀ w1 w2 : A, w1 ∈ W → w2 ∈ W → boom w1 → R w1 w2 → boom w2
 
-/-- Forcing for exploded models (Veldman-style "exploding points"). -/
+-- Forcing for formulas and contexts with exploding models. -/
+
 @[simp]
 def Forces {A : Type u} (M : emodel A) : Form → A → Prop
-| Form.atom p, v => M.val p v ∨ M.ival v
-| Form.I,      v => M.ival v
+| Form.atom p, v => M.val p v ∨ M.boom v
+| Form.bot,      v => M.boom v
 | Form.imp p q, v =>
     ∀ w, w ∈ M.W → v ∈ M.W → M.R v w → Forces M p w → Forces M q w
 | Form.and p q, v => Forces M p v ∧ Forces M q v
@@ -48,26 +57,26 @@ def Forces {A : Type u} (M : emodel A) : Form → A → Prop
 
 notation w " ⊩{" M "} " P => Forces M P w
 
-/-- Context forcing. -/
 def forces_ctx {A : Type u} (M : emodel A) (Γ : Set Form) : A → Prop :=
   fun w => ∀ p, p ∈ Γ → Forces M p w
 
 notation w " ⊩{" M "} " Γ => forces_ctx M Γ w
 
-/-- Semantic consequence (local). -/
+-- Semantic consequence
+
 def sem_csq (Γ : Set Form) (p : Form) : Prop :=
   ∀ {A : Type u} (M : emodel A) (w : A),
     w ∈ M.W → (w ⊩{M} Γ) → (w ⊩{M} p)
 
 notation Γ " ⊨ᵢ " p => sem_csq Γ p
 
-/-- Hilbert-style IPC proof system (same as your Lean3, with `I` as bottom). -/
+/- Hilbert-style IPC proof system (from https://github.com/bbentzen/ipl/). -/
+
 inductive prf : Set Form → Form → Prop
 | ax   {Γ} {p} (h : p ∈ Γ) : prf Γ p
 | k    {Γ} {p q} : prf Γ (p ⊃ (q ⊃ p))
-| s    {Γ} {p q r} :
-    prf Γ ((p ⊃ (q ⊃ r)) ⊃ ((p ⊃ q) ⊃ (p ⊃ r)))
-| exf  {Γ} {p} : prf Γ (I ⊃ p)
+| s    {Γ} {p q r} : prf Γ ((p ⊃ (q ⊃ r)) ⊃ ((p ⊃ q) ⊃ (p ⊃ r)))
+| exf  {Γ} {p} : prf Γ (⊥ ⊃ p)
 | mp   {Γ} {p q} (hpq : prf Γ (p ⊃ q)) (hp : prf Γ p) : prf Γ q
 | pr1  {Γ} {p q} : prf Γ ((p & q) ⊃ p)
 | pr2  {Γ} {p q} : prf Γ ((p & q) ⊃ q)
@@ -77,12 +86,16 @@ inductive prf : Set Form → Form → Prop
 | case {Γ} {p q r} : prf Γ ((p ⊃ r) ⊃ ((q ⊃ r) ⊃ ((p ⋎ q) ⊃ r)))
 
 notation:50 Γ " ⊢ᵢ " p => prf Γ p
-/- some helpful lemmas -/
+
 namespace prf
 notation:50 Γ " ⊬ᵢ " p => (prf Γ p → False)
-/-- Context extension: `Γ ⸴ p` means `insert p Γ`. -/
+
+-- Context extension: `Γ ⸴ p` means `insert p Γ`
+
 notation:55 Γ " ⸴ " a => Set.insert a Γ
-/-- If `Γ ⊢ φ` then `Γ ⊢ a ⊃ φ`. -/
+
+/-- Some helpful lemmas -/
+
 lemma lift {Γ : Set Form} {a φ : Form} (hφ : Γ ⊢ᵢ φ) : Γ ⊢ᵢ (a ⊃ φ) :=
   prf.mp (prf.k (Γ := Γ) (p := φ) (q := a)) hφ
 
@@ -142,7 +155,8 @@ lemma and_elim2 {p q : Form} {Γ : Set Form} :
   intro hpq
   exact prf.mp (prf.pr2 (Γ := Γ) (p := p) (q := q)) hpq
 
-/- structural rule: weakening by subset -/
+-- Structural rule: weakening by subset
+
 lemma sub_weak {Γ Δ : Set Form} {p : Form} :
   (Δ ⊢ᵢ p) → (Δ ⊆ Γ) → (Γ ⊢ᵢ p) := by
   intro hp hsub
@@ -171,7 +185,9 @@ lemma sub_weak {Γ Δ : Set Form} {p : Form} :
       exact case
 
 end prf
+
 /-- Forcing is monotone along R (persistence). -/
+
 lemma mono_r {A : Type u} {M : emodel A} :
   ∀ p : Form, ∀ w1 w2 : A, w1 ∈ M.W → w2 ∈ M.W →
     (w1 ⊩{M} p) → M.R w1 w2 → (w2 ⊩{M} p) := by
@@ -181,10 +197,10 @@ lemma mono_r {A : Type u} {M : emodel A} :
       intro w1 w2 hw1 hw2 h hR
       cases h with
       | inl hv => exact Or.inl (M.mono n w1 w2 hw1 hw2 hv hR)
-      | inr hi => exact Or.inr (M.monoI w1 w2 hw1 hw2 hi hR)
-  | «I» =>
+      | inr hi => exact Or.inr (M.bmono w1 w2 hw1 hw2 hi hR)
+  | «bot» =>
       intro w1 w2 hw1 hw2 h hR
-      exact M.monoI w1 w2 hw1 hw2 h hR
+      exact M.bmono w1 w2 hw1 hw2 h hR
   | imp p q ihp ihq =>
       intro w1 w2 hw1 hw2 h h12
       intro w3 hw3 hw2' h23 hpw3
@@ -199,15 +215,16 @@ lemma mono_r {A : Type u} {M : emodel A} :
       | inl hp => exact Or.inl (ihp w1 w2 hw1 hw2 hp hR)
       | inr hq => exact Or.inr (ihq w1 w2 hw1 hw2 hq hR)
 
-/-- At exploding worlds (`ival`), every formula is forced. -/
+/-- At exploding worlds (`boom`), every formula is forced. -/
+
 lemma forces_of_explodes {A : Type u} (M : emodel A) :
-  ∀ p : Form, ∀ w : A, w ∈ M.W → M.ival w → (w ⊩{M} p) := by
+  ∀ p : Form, ∀ w : A, w ∈ M.W → M.boom w → (w ⊩{M} p) := by
   intro p
   induction p with
   | atom n =>
       intro w hw hi
       exact Or.inr hi
-  | «I» =>
+  | «bot» =>
       intro w hw hi
       exact hi
   | and p q ihp ihq =>
@@ -219,10 +236,12 @@ lemma forces_of_explodes {A : Type u} (M : emodel A) :
   | imp p q ihp ihq =>
       intro w hw hi
       intro w' hw' hw'0 hww' hpw'
-      have hi' : M.ival w' := M.monoI w w' hw hw' hi hww'
+      have hi' : M.boom w' := M.bmono w w' hw hw' hi hww'
       exact ihq w' hw' hi'
 
-/-- Soundness: if Γ ⊢ᵢ p then Γ ⊨ᵢ p.  (This is Veldman 1.4 in the propositional setting.) -/
+/-- Soundness: if Γ ⊢ᵢ p then Γ ⊨ᵢ p.
+    (Veldman's Thm 1.4 in the propositional setting.) -/
+
 theorem prf_sound {Γ : Set Form} {p : Form} (h : Γ ⊢ᵢ p) : Γ ⊨ᵢ p := by
   intro A M w hw hΓ
   induction h with
@@ -273,6 +292,7 @@ theorem prf_sound {Γ : Set Form} {p : Form} (h : Γ ⊢ᵢ p) : Γ ⊨ᵢ p := 
       | inr hQ => exact hQR w3 hw3 hw2 hw2w3 hQ
 
 /-- Global (all-worlds) form matching the paper statement style. -/
+
 def Models {A : Type u} (M : emodel A) (Γ : Set Form) : Prop :=
   ∀ w, w ∈ M.W → w ⊩{M} Γ
 
@@ -280,24 +300,29 @@ def Valid {A : Type u} (M : emodel A) (p : Form) : Prop :=
   ∀ w, w ∈ M.W → w ⊩{M} p
 
 /-- Veldman Theorem 1.4 (propositional analogue): if Γ ⊢ᵢ p and M models Γ everywhere, then M validates p everywhere. -/
+
 theorem veldman_1_4 {Γ : Set Form} {p : Form} (h : Γ ⊢ᵢ p) :
   ∀ {A : Type u} (M : emodel A), Models M Γ → Valid M p := by
   intro A M hΓ w hw
   exact (prf_sound (Γ:=Γ) (p:=p) h) M w hw (hΓ w hw)
 
 /-- Deductive closure: Γ contains every formula provable from Γ. -/
+
 def IsTheory (Γ : Set Form) : Prop :=
   ∀ {p : Form}, (Γ ⊢ᵢ p) → p ∈ Γ
 
 /-- Disjunctive: if (p ⊔ q) is in Γ, then Γ already contains p or q. -/
+
 def Disjunctive (Γ : Set Form) : Prop :=
   ∀ {p q : Form}, (Form.or p q) ∈ Γ → p ∈ Γ ∨ q ∈ Γ
 
 /-- Semiregular (propositional): disjunctive theory. -/
+
 def SemiRegular (Γ : Set Form) : Prop :=
   IsTheory Γ ∧ Disjunctive Γ
 
 /-- Membership gives a proof by the axiom rule. -/
+
 lemma prf_of_mem {Γ : Set Form} {p : Form} (hp : p ∈ Γ) : Γ ⊢ᵢ p := by
 
   exact (by
@@ -306,17 +331,20 @@ lemma prf_of_mem {Γ : Set Form} {p : Form} (hp : p ∈ Γ) : Γ ⊢ᵢ p := by
   )
 
 /-- In a theory, any proof implies membership. -/
+
 lemma mem_of_prf {Γ : Set Form} (hT : IsTheory Γ) {p : Form} (hp : Γ ⊢ᵢ p) : p ∈ Γ :=
   hT hp
 
 /-- So inside a theory: membership ↔ provability. -/
+
 lemma mem_iff_prf {Γ : Set Form} (hT : IsTheory Γ) {p : Form} : p ∈ Γ ↔ Γ ⊢ᵢ p := by
   constructor
   · intro hp; exact prf_of_mem (Γ:=Γ) hp
   · intro hp; exact hT hp
 
-/-- In a semiregular Γ, proofs of (p ⊔ q) split. -/
-lemma semiregular_disjunctive_prf
+/-- In a prime Γ, proofs of (p ⊔ q) split. -/
+
+lemma prime_disjunctive_prf
   {Γ : Set Form} (hSR : SemiRegular Γ) {p q : Form} :
   (Γ ⊢ᵢ Form.or p q) → ((Γ ⊢ᵢ p) ∨ Γ ⊢ᵢ q) := by
   intro hpq
@@ -330,6 +358,7 @@ lemma semiregular_disjunctive_prf
       exact Or.inr (prf_of_mem (Γ:=Γ) hq_mem)
 
 /-- A theory is closed under modus ponens at the level of membership. -/
+
 lemma theory_mp_mem
   {Γ : Set Form} (hT : IsTheory Γ) {p q : Form} :
   (p ⊃ q) ∈ Γ → p ∈ Γ → q ∈ Γ := by
